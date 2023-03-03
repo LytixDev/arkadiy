@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    WebSocket test page
+    <script>
+        let ws = new WebSocket("ws://localhost:8080")
+        ws.onerror = (event) => {
+          alert("error")
+          console.log(event)
+        }
+        ws.onclose = () => alert("close")
+        ws.onmessage = event => alert("Message from server: " + event.data)
+
+        ws.onopen = () => { 
+            console.log("berachad");
+            alert("berachad")
+            ws.send("Halla")
+        }
+
+        ws.addEventListener('open', (event) => {
+            console.log("open")
+            ws.send('Hello Server!')
+        })
+    </script>
+  </body>
+</html>
