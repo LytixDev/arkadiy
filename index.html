@@ -5,8 +5,13 @@
   </head>
   <body>
     WebSocket test page
+    <p>input</p>
+    <input type="text" id="input-ws">
+    <button onclick="send_ws()">send</button>
+
     <script>
-        let ws = new WebSocket("ws://localhost:8080")
+        var input_field = document.getElementById("input-ws")
+        let ws = new WebSocket("ws://localhost:3001")
         ws.onerror = (event) => {
           alert("error")
           console.log(event)
@@ -15,15 +20,14 @@
         ws.onmessage = event => alert("Message from server: " + event.data)
 
         ws.onopen = () => { 
-            console.log("berachad");
-            alert("berachad")
             ws.send("Halla")
         }
 
-        ws.addEventListener('open', (event) => {
-            console.log("open")
-            ws.send('Hello Server!')
-        })
+        function send_ws() {
+            ws.send(input_field.value)
+            input_field.value = ""
+        }
     </script>
+
   </body>
 </html>

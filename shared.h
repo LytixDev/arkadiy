@@ -2,14 +2,12 @@
 #define SHARED_H
 
 #include <stdlib.h>
+#include <stdint.h>
 
 #define MSG_LEN 1024
 #define IP "127.0.0.1"
 #ifndef WS_PORT
-#  define WS_PORT 8080
-#endif
-#ifndef PORT
-#  define PORT 8080
+#  define WS_PORT 3001
 #endif
 
 
@@ -20,10 +18,9 @@
 #define GUID "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 #define GUID_LEN strlen(GUID)
 #define WS_KEY_LEN 24
-#define WS_HEADER "HTTP/1.1 101 Switching Protocols\n"\
-                "Upgrade: websocket\n"\
-                "Connection: Upgrade\n"\
-                "Sec-WebSocket-Protocol: chat\n"\
+#define WS_HEADER "HTTP/1.1 101 Switching Protocols\r\n"\
+                "Upgrade: websocket\r\n"\
+                "Connection: Upgrade\r\n"\
                 "Sec-WebSocket-Accept: "
 
 #define WS_HEADER_LEN strlen(WS_HEADER)
@@ -45,20 +42,11 @@
     } while (0) \
 
 
-/* Pascal string */
-typedef struct {
-    char *str;
-    size_t size;
-} Str;
-
-typedef struct {
-    Str *file_content;
-    int connfd;
-} ServeFileArgs;
-
-typedef struct {
-    char *header;
-    int connfd;
-} WsConnectArgs;
+struct ws_frame_head_t {
+    bool fin;
+    int8_t opcode;
+    size_t payload_len;
+    uint8_t mask_key[4];
+};
 
 #endif /* SHARED_H */
