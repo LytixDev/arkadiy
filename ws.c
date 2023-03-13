@@ -11,6 +11,12 @@
 
 #include "shared.h"
 #include "base64.h"
+#define NICC_IMPLEMENTATION
+#include "nicc/nicc.h"
+
+
+struct darr_t *client_fds;
+
 
 /* c and strings is not comfy :( */
 char *cstr_starts_with(const char *str, const char *substr)
@@ -114,7 +120,7 @@ bool ws_handshake(int connfd, char *incoming_header)
     return true;
 }
 
-void ws_listen(void *arg)
+void *ws_listen(void *arg)
 {
     int connfd = *(int *)arg;
     char buf[MSG_LEN];
@@ -136,8 +142,8 @@ void ws_listen(void *arg)
     while (1) {
         struct ws_frame_head_t frame;
         if (ws_recv_frame_head(connfd, &frame) < 0) {
-            LOG_ERR("Failed to receive head");
-            continue;
+            LOG_ERR("Connection closed");
+            goto close_sock;
         }
         
         if (ws_send_frame_head(connfd, &frame) < 0) {
@@ -147,11 +153,11 @@ void ws_listen(void *arg)
 
         int size = 0;
         do {
-            int rec;
-            if ((rec = recv(connfd, buf, MSG_LEN, 0)) < 0)
+            int rec_len;
+            if ((rec_len = recv(connfd, buf, MSG_LEN, 0)) < 0)
                 break;
             
-            size += rec;
+            size += rec_len;
 
             for (int i = 0; i < size; ++i)
                 buf[i] ^= *(frame.mask_key + (i%4));
@@ -159,15 +165,30 @@ void ws_listen(void *arg)
             buf[size] = 0;
             LOG("Received: %s", buf);
 
-            if (send(connfd, buf, rec, 0) < 0)
+            if (send(connfd, buf, rec_len, 0) < 0)
                 break;
+
+            for (size_t i = 0; i < client_fds->size; i++) {
+                int fd = *(int *)darr_get(client_fds, i);
+                int rc;
+                if (fd == connfd)
+                    continue;
+                if (ws_send_frame_head(fd, &frame) < 0) {
+                    LOG_ERR("Failed to send head to %d", fd);
+                    continue;
+                }
+                send(fd, buf, rec_len, 0);
+                LOG("Sent %s to client %d that came from %d with rc %d", buf, fd, connfd, rc);
+            }
             
         } while(size < frame.payload_len);
     }
 
 close_sock:
     LOG("closing connection to %d", connfd);
+    darr_rmv(client_fds, &connfd, sizeof(int));
     close(connfd);
+    return NULL;
 }
 
 int main()
@@ -206,17 +227,27 @@ int main()
         exit(1);
     }
     LOG("server listening on port %d", WS_PORT);
+    client_fds = darr_malloc();
 
-    struct sockaddr_in client = {0};
-    unsigned int len = sizeof(client);
+    while (1) {
+        struct sockaddr_in client = {0};
+        unsigned int len = sizeof(client);
 
-    int connfd = accept(sockfd, (struct sockaddr *)&client, &len);
-    if (connfd < 0) {
-        LOG_ERR("server accept failed");
-        exit(1);
+        int connfd = accept(sockfd, (struct sockaddr *)&client, &len);
+        if (connfd < 0) {
+            LOG_ERR("server accept failed");
+            exit(1);
+        }
+        LOG("server accepted the client: %d", connfd);
+
+        int *fd = malloc(sizeof(int));
+        *fd = connfd;
+        darr_append(client_fds, fd);
+
+        pthread_t thread;
+        pthread_create(&thread, NULL, ws_listen, &connfd);
+        //ws_listen(&connfd);
     }
-    LOG("server accepted the client: %d", connfd);
-    ws_listen(&connfd);
 
     close(sockfd);
 }

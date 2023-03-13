@@ -9,15 +9,22 @@
     <input type="text" id="input-ws">
     <button onclick="send_ws()">send</button>
 
+    <div id="log">
+    </div>
+
     <script>
         var input_field = document.getElementById("input-ws")
+        var log_field = document.getElementById("log")
         let ws = new WebSocket("ws://localhost:3001")
         ws.onerror = (event) => {
           alert("error")
           console.log(event)
         }
         ws.onclose = () => alert("close")
-        ws.onmessage = event => alert("Message from server: " + event.data)
+
+        ws.onmessage = event => { 
+          log_field.innerHTML += `<p>${event.data}</p>`
+        }
 
         ws.onopen = () => { 
             ws.send("Halla")
